@@ -4,9 +4,8 @@ import org.jsonbuddy.*;
 
 import java.lang.reflect.*;
 import java.time.temporal.Temporal;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Convert an object to JSON by mapping fields for any object
@@ -20,7 +19,7 @@ public class JsonGenerator {
      *   <li>If the argument is a JsonNode the argument is returned.
      *   <li>If it is a String, Number or Boolean, the corresponding JsonNode type is returned.
      *   <li>If it is a Temporal or Enum, the String representation is returned.
-     *   <li>If it is a collection, a JsonArray of the elements is returned.
+     *   <li>If it is a collection or an array, a JsonArray of the elements is returned.
      *   <li>If it implements OverridesJsonGenerator, the custom serialization is called.
      *   <li>If it is an Object, uses reflection to generate a JsonObject of public fields and getters.
      * </ul>
@@ -59,6 +58,15 @@ public class JsonGenerator {
         if (object instanceof Collection) {
             return JsonArray.map((Collection<?>) object, this::generateNode);
         }
+        if (object instanceof Object[]) {
+            return JsonArray.map(Arrays.asList((Object[]) object), this::generateNode);
+        }
+        if (object.getClass().isArray()) {
+            Optional<Object> convertedObject = Optional.ofNullable(convertPrimitiveArray(object));
+            if (convertedObject.isPresent()) {
+                return this.generateNode(convertedObject.get());
+            }
+        }
         if (object instanceof Temporal) {
             return JsonFactory.jsonString(object.toString());
         }
@@ -67,6 +75,35 @@ public class JsonGenerator {
             return overridesJsonGenerator.jsonValue();
         }
         return handleSpecificClass(object);
+    }
+
+    private static Object convertPrimitiveArray(Object object) {
+        if (object instanceof int[]) {
+            return Arrays.stream((int[]) object).boxed().collect(Collectors.toList());
+        }
+        if (object instanceof long[]) {
+            return Arrays.stream((long[]) object).boxed().collect(Collectors.toList());
+        }
+        if (object instanceof double[]) {
+            return Arrays.stream((double[]) object).boxed().collect(Collectors.toList());
+        }
+        if (object instanceof float[]) {
+            float[] floatArray = (float[]) object;
+            List<Float> floatList = new ArrayList<>(floatArray.length);
+            for (float f : floatArray) {
+                floatList.add(f);
+            }
+            return floatList;
+        }
+        if (object instanceof boolean[]) {
+            boolean[] booleanArray = (boolean[]) object;
+            List<Boolean> booleanList = new ArrayList<>(booleanArray.length);
+            for (boolean b : booleanArray) {
+                booleanList.add(b);
+            }
+            return booleanList;
+        }
+        return null;
     }
 
     private static boolean isGetMethod(Method method) {

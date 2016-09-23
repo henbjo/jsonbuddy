@@ -8,6 +8,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -148,4 +151,82 @@ public class JsonGeneratorTest {
         assertThat(jsonObject.requiredString("42")).isEqualTo("Meaning of life");
     }
 
+    @Test
+    public void shouldHandleArrays() throws Exception {
+        Integer[] integerArray = IntStream.range(0, 10).mapToObj(Integer::valueOf).toArray(Integer[]::new);
+        JsonNode generated = JsonGenerator.generate(integerArray);
+
+        assertThat(generated).isInstanceOf(JsonArray.class);
+        JsonArray jsonArray = (JsonArray) generated;
+        assertThat(jsonArray).hasSize(10);
+        Integer[] integerArrayFromJson = jsonArray.nodeStream().map(n -> ((JsonNumber) n).intValue()).toArray(Integer[]::new);
+        assertThat(integerArrayFromJson).isEqualTo(integerArray);
+    }
+
+    @Test
+    public void shouldHandlePrimitiveIntegerNumberArrays() throws Exception {
+        int[] intArray = IntStream.range(0, 10).toArray();
+        JsonNode generated = JsonGenerator.generate(intArray);
+
+        assertThat(generated).isInstanceOf(JsonArray.class);
+        JsonArray jsonArray = (JsonArray) generated;
+        assertThat(jsonArray).hasSize(intArray.length);
+        int[] intArrayFromJson = jsonArray.nodeStream().mapToInt(n -> ((JsonNumber) n).intValue()).toArray();
+        assertThat(intArrayFromJson).isEqualTo(intArray);
+
+        long[] longArray = LongStream.range(0, 10).toArray();
+        generated = JsonGenerator.generate(longArray);
+
+        assertThat(generated).isInstanceOf(JsonArray.class);
+        jsonArray = (JsonArray) generated;
+        assertThat(jsonArray).hasSize(longArray.length);
+        long[] longArrayFromJson = jsonArray.nodeStream().mapToLong(n -> ((JsonNumber) n).longValue()).toArray();
+        assertThat(longArrayFromJson).isEqualTo(longArray);
+    }
+
+    @Test
+    public void shouldHandlePrimitiveFloatingPointNumberArrays() throws Exception {
+        double[] doubleArray = DoubleStream.iterate(2.0, Math::sqrt).limit(10).toArray();
+        JsonNode generated = JsonGenerator.generate(doubleArray);
+
+        assertThat(generated).isInstanceOf(JsonArray.class);
+        JsonArray jsonArray = (JsonArray) generated;
+        assertThat(jsonArray).hasSize(doubleArray.length);
+        double[] doubleArrayFromJson = jsonArray.nodeStream().mapToDouble(n -> ((JsonNumber) n).doubleValue()).toArray();
+        assertThat(doubleArrayFromJson).isEqualTo(doubleArray);
+
+        float[] floatArray = new float[doubleArray.length];
+        for (int i = 0; i < floatArray.length; i++) {
+            floatArray[i] = (float) doubleArray[i];
+        }
+        generated = JsonGenerator.generate(floatArray);
+
+        assertThat(generated).isInstanceOf(JsonArray.class);
+        List<Float> floatListFromJson = ((JsonArray) generated).nodeStream().map(node -> (JsonNumber) node).map(JsonNumber::floatValue).collect(Collectors.toList());
+        assertThat(floatListFromJson).hasSize(floatArray.length);
+        float[] floatArrayFromJson = new float[floatArray.length];
+        for (int i = 0; i < floatListFromJson.size(); i++) {
+            floatArrayFromJson[i] = floatListFromJson.get(i);
+        }
+        assertThat(floatArrayFromJson).isEqualTo(floatArray);
+    }
+
+    @Test
+    public void shouldHandlePrimitiveBooleanArrays() throws Exception {
+        boolean[] booleanArray = new boolean[10];
+        Iterator<Boolean> it = DoubleStream.iterate(0, d -> Math.random()).mapToObj(d -> d > 0.5).iterator();
+        for (int i = 0; i < booleanArray.length; i++) {
+            booleanArray[i] = it.next();
+        }
+        JsonNode generated = JsonGenerator.generate(booleanArray);
+
+        assertThat(generated).isInstanceOf(JsonArray.class);
+        List<Boolean> booleanListFromJson = ((JsonArray) generated).nodeStream().map(node -> (JsonBoolean) node).map(JsonBoolean::booleanValue).collect(Collectors.toList());
+        assertThat(booleanListFromJson).hasSize(booleanArray.length);
+        boolean[] booleanArrayFromJson = new boolean[booleanArray.length];
+        for (int i = 0; i < booleanListFromJson.size(); i++) {
+            booleanArrayFromJson[i] = booleanListFromJson.get(i);
+        }
+        assertThat(booleanArrayFromJson).isEqualTo(booleanArray);
+    }
 }
